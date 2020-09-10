@@ -51,7 +51,7 @@ static bool check_engine_ops(struct ioengine_ops *ops)
 
 void unregister_ioengine(struct ioengine_ops *ops)
 {
-	dprint(FD_IO, "ioengine %s unregistered\n", ops->name);
+	//dprint(FD_IO, "ioengine %s unregistered\n", ops->name);
 	flist_del_init(&ops->list);
 }
 
@@ -291,7 +291,7 @@ out:
 	} else
 		td_verror(td, r, "get_events");
 
-	dprint(FD_IO, "getevents: %d\n", r);
+	dprint(FD_IO, "getevents: ret=%d\n", r);
 	return r;
 }
 

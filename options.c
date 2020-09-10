@@ -1862,6 +1862,11 @@ struct fio_option fio_options[FIO_MAX_OPTS] = {
 			    .help = "RDMA IO engine",
 			  },
 #endif
+#ifdef CONFIG_LIBRPMA
+			  { .ival = "librpma",
+			    .help = "librpma IO engine",
+			  },
+#endif
 #ifdef CONFIG_LINUX_EXT4_MOVE_EXTENT
 			  { .ival = "e4defrag",
 			    .help = "ext4 defrag engine",
