@@ -77,6 +77,7 @@ static int str_hostname_cb(void *data, const char *input)
 }
 
 static struct fio_option options[] = {
+	/* remove */
 	{
 		.name	= "hostname",
 		.lname	= "librpma engine hostname",
@@ -86,6 +87,8 @@ static struct fio_option options[] = {
 		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_LIBRPMA,
 	},
+
+	/* rename bindname -> server:listen_ip, client: server_ip */
 	{
 		.name	= "bindname",
 		.lname	= "librpma engine bindname",
@@ -96,6 +99,8 @@ static struct fio_option options[] = {
 		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_LIBRPMA,
 	},
+
+	/* rename: server:listen_port, client:server_port */
 	{
 		.name	= "port",
 		.lname	= "librpma engine port",
@@ -107,6 +112,8 @@ static struct fio_option options[] = {
 		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_LIBRPMA,
 	},
+
+	/* remove */
 	{
 		.name	= "verb",
 		.lname	= "RDMA engine verb",
@@ -163,7 +170,38 @@ struct librpma_io_u_data {
 	struct ibv_sge rdma_sgl;
 };
 
+/*
+Note: we are thinking about creating a separate engine for the client side and
+      for the server side.
+
+- setup:
+    - alloc private data (io_ops_data)
+
+- init:
+    - rpma_peer_new(ip)
+    - rpma_conn_cfg_set_sq_size(iodepth + 1)
+    - rpma_conn_req_new(ip, port);
+    - rpma_conn_req_connect()
+    - rpma_conn_get_private_data(&mr_remote)
+    - rpma_mr_remote_from_descriptor()
+    - rpma_mr_remote_size() >= size
+
+- post_init - not used
+
+- cleanup:
+    - rpma_disconnect etc.
+    - free private data
+ */
+
 struct librpmaio_data {
+	/* required */
+	struct rpma_peer *peer;
+	struct rpma_conn *conn;
+	struct rpma_mr_remote *mr_remote;
+
+	struct rpma_mr_local *mr_local;
+
+	/* not used */
 	int is_client;
 	enum librpma_io_mode librpma_protocol;
 	char host[64];
@@ -201,8 +239,6 @@ struct librpmaio_data {
 	int io_u_completed_nr;
 
 	struct frand_state rand_state;
-
-	struct rpma_peer *peer;
 };
 
 static int client_recv(struct thread_data *td, struct ibv_wc *wc)
