@@ -1044,9 +1044,9 @@ static int fio_librpmaio_setup_connect(struct thread_data *td, const char *host,
 		return err;
 
 	/* resolve route */
-	if (o->bindname && strlen(o->bindname)) {
+	if (o->server_ip && strlen(o->server_ip)) {
 		addrb.ss_family = AF_INET;
-		err = aton(td, o->bindname, (struct sockaddr_in *)&addrb);
+		err = aton(td, o->server_ip, (struct sockaddr_in *)&addrb);
 		if (err)
 			return err;
 		err = rdma_resolve_addr(rd->cm_id, (struct sockaddr *)&addrb,
@@ -1110,10 +1110,10 @@ static int fio_librpmaio_setup_listen(struct thread_data *td, short port)
 	rd->addr.sin_family = AF_INET;
 	rd->addr.sin_port = htons(port);
 
-	if (!o->bindname || !strlen(o->bindname))
+	if (!o->server_ip || !strlen(o->server_ip))
 		rd->addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	else
-		rd->addr.sin_addr.s_addr = htonl(*o->bindname);
+		rd->addr.sin_addr.s_addr = htonl(*o->server_ip);
 
 	/* rdma_listen */
 	if (rdma_bind_addr(rd->cm_id, (struct sockaddr *)&rd->addr) != 0) {
@@ -1206,9 +1206,10 @@ static int compat_options(struct thread_data *td)
 	*portp = '\0';
 	portp++;
 
-	o->port = strtol(portp, NULL, 10);
-	if (!o->port || o->port > 65535)
-		goto bad_host;
+	o->server_port = portp;
+	/* XXX: port validation ...?
+	if (!o->server_port || o->server_port > 65535)
+		goto bad_host;*/
 
 	modep = strchr(portp, '/');
 	if (modep != NULL) {
@@ -1216,6 +1217,7 @@ static int compat_options(struct thread_data *td)
 		modep++;
 	}
 
+	/* XXX: do we need this?
 	if (modep) {
 		if (!strncmp("rdma_write", modep, strlen(modep)) ||
 		    !strncmp("RDMA_WRITE", modep, strlen(modep)))
@@ -1230,7 +1232,7 @@ static int compat_options(struct thread_data *td)
 			goto bad_host;
 	} else
 		o->verb = FIO_RDMA_MEM_WRITE;
-
+	*/
 
 	return 0;
 
@@ -1257,7 +1259,7 @@ static int fio_librpmaio_init(struct thread_data *td)
 	if (compat_options(td))
 		return 1;
 
-	if (!o->port) {
+	if (!o->server_port) {
 		log_err("fio: no port has been specified which is required "
 			"for the rdma engine\n");
 		return 1;
@@ -1266,7 +1268,7 @@ static int fio_librpmaio_init(struct thread_data *td)
 	if (check_set_rlimits(td))
 		return 1;
 
-	rd->librpma_protocol = o->verb;
+	/*rd->librpma_protocol = o->verb;*/
 	rd->cq_event_num = 0;
 
 	rd->cm_channel = rdma_create_event_channel();
@@ -1306,10 +1308,10 @@ static int fio_librpmaio_init(struct thread_data *td)
 		rd->is_client = 0;
 		td->flags |= TD_F_NO_PROGRESS;
 		/* server rd->rdma_buf_len will be setup after got request */
-		ret = fio_librpmaio_setup_listen(td, o->port);
+		ret = fio_librpmaio_setup_listen(td, o->server_port);
 	} else {		/* WRITE as the client */
 		rd->is_client = 1;
-		ret = fio_librpmaio_setup_connect(td, td->o.filename, o->port);
+		ret = fio_librpmaio_setup_connect(td, td->o.filename, o->server_port);
 	}
 	return ret;
 }
