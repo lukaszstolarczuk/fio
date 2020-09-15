@@ -146,20 +146,20 @@ int fio_librpma_server_io_iomem_alloc(struct thread_data *td, size_t total_mem)
 
 	/* allocate a page size aligned local memory pool */
 	void *mem;
-	int ret = posix_memalign(&mem, (size_t)pagesize, total_mem);
+	ret = posix_memalign(&mem, (size_t)pagesize, total_mem);
 	if (ret) {
 		td_verror(td, ret, "posix_memalign");
 		return 1;
 	}
 
 	/* register the memory */
-	if ((ret = rpma_mr_reg(rd->peer, mem, total_mem, &rd->mr_local))) {
+	if ((ret = rpma_mr_reg(rd->peer, mem, total_mem, RPMA_MR_USAGE_WRITE_DST, RPMA_MR_PLT_VOLATILE, &rd->mr_local))) {
 		rpma_td_verror(td, ret, "rpma_mr_reg");
 		free(mem);
 		return 1;
 	}
 
-	td->orig_buffer = mem
+	td->orig_buffer = mem;
 	dprint(FD_MEM, "malloc %llu %p\n", (unsigned long long) total_mem,
 							td->orig_buffer);
 
