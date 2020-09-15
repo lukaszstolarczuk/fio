@@ -133,6 +133,55 @@ static int fio_librpma_server_io_init(struct thread_data *td)
 	return 0;
 }
 
+int fio_librpma_server_io_iomem_alloc(struct thread_data *td, size_t total_mem)
+{
+	struct librpma_server_io_data *rd = td->io_ops_data;
+	int ret;
+
+	long pagesize = sysconf(_SC_PAGESIZE);
+	if (pagesize < 0) {
+		td_verror(td, errno, "sysconf");
+		return 1;
+	}
+
+	/* allocate a page size aligned local memory pool */
+	void *mem;
+	int ret = posix_memalign(&mem, (size_t)pagesize, total_mem);
+	if (ret) {
+		td_verror(td, ret, "posix_memalign");
+		return 1;
+	}
+
+	/* register the memory */
+	if ((ret = rpma_mr_reg(rd->peer, mem, total_mem, &rd->mr_local))) {
+		rpma_td_verror(td, ret, "rpma_mr_reg");
+		free(mem);
+		return 1;
+	}
+
+	td->orig_buffer = mem
+	dprint(FD_MEM, "malloc %llu %p\n", (unsigned long long) total_mem,
+							td->orig_buffer);
+
+	return 0;
+}
+
+void fio_librpma_server_io_iomem_free(struct thread_data *td)
+{
+	struct librpma_server_io_data *rd = td->io_ops_data;
+	int ret;
+
+	/* deregister the memory region */
+	if ((ret = rpma_mr_dereg(&rd->mr_local))) {
+		rpma_td_verror(td, ret, "rpma_mr_dereg");
+	}
+
+	/* free the memory */
+	void *mem = td->orig_buffer;
+	td->orig_buffer = NULL;
+	free(mem);
+}
+
 static int fio_librpma_server_io_post_init(struct thread_data *td)
 {
 	struct librpma_server_io_data *rd = td->io_ops_data;
@@ -255,6 +304,8 @@ FIO_STATIC struct ioengine_ops ioengine = {
 	.version		= FIO_IOOPS_VERSION,
 	.setup			= fio_librpma_server_io_setup,
 	.init			= fio_librpma_server_io_init,
+	.iomem_alloc		= fio_librpma_server_io_iomem_alloc,
+	.iomem_free		= fio_librpma_server_io_iomem_free,
 	.post_init		= fio_librpma_server_io_post_init,
 	.queue			= fio_librpma_server_io_queue,
 	.commit			= fio_librpma_server_io_commit,
